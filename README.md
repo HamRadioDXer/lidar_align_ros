@@ -55,3 +55,76 @@ $$
 其中，$p{\prime}$是输入点云在经过三维坐标变换参数 θ 转换后的点，$\mu_i$ 是与该输入点相对应的目标点云ND体素格的均值，$\Sigma_i$ 是相应的ND体素内的协方差矩阵。拟合度$Fitness(P,\theta)$ 数值越大说明输入点云和目标点云在该位置越匹配，**通过搜索参数向量 θ 得到大的拟合度**，这是一个典型的非线性最优化问题，NDT算法使用`牛顿法`来求解最优参数。牛顿法是一种最小化目标函数的方法，所以目标函数$f(\theta)$为：$Fitness(P,\theta)$
 
 > 其中$\theta=\left(\alpha, \theta, \gamma, d_{x}, d_{y}, d_{z}\right)^{T}$， 是输入点云到目标点云的三维坐标转换参数。通过迭代牛顿法，不断调整 θ向量，使得$Fitness(P,\theta)$小于一个阈值，则称NDT参数优化已经收敛，根据此时的变换参数向量 θ\ 即可确定输入点云在目标点云中的姿态，**也就是lidar A到lidar B的TF关系。**
+
+
+---
+运行
+
+```bash
+source devel/setup.bash
+roslaunch multi_lidar_calibrator multi_lidar_calibrator.launch
+rosbag play multi_lidar.bag
+```
+
+通过Rviz可以看到大概用时不到5秒中左右，两颗激光雷达即标定完成，如下图：
+
+![image-20200802104359260](picture/image-20200802104359260.png)
+
+并且可以得到相应的TF关系，如下图：
+
+![image-20200802104429401](picture/image-20200802104429401.png)
+
+程序的输出：
+
+```bash
+Normal Distributions Transform converged:1 score: 19.4946 prob:0.433616
+transformation from lf to fh
+This transformation can be replicated using:
+rosrun tf static_transform_publisher   1.00938 -0.478343 -0.442721   1.36447 0.0686235 -0.080712 /fh /lf 10
+Corresponding transformation matrix:
+
+   0.20438  -0.976737 -0.0649128    1.00938
+  0.976487   0.198784  0.0834137  -0.478343
+-0.0685697 -0.0804346   0.994399  -0.442721
+         0          0          0          1
+```
+
+`rostopic echo /tf`的结果：
+
+```bash
+---
+transforms: 
+  - 
+    header: 
+      seq: 0
+      stamp: 
+        secs: 1588649248
+        nsecs: 552209442
+      frame_id: "fh"
+    child_frame_id: "lf"
+    transform: 
+      translation: 
+        x: 1.00938165188
+        y: -0.478343397379
+        z: -0.442720860243
+      rotation: 
+        x: -0.0529087069262
+        y: 0.00118085502996
+        z: 0.63072089591
+        w: 0.774203090781
+```
+
+> 将收敛后程序的输出结果中的`1.00938 -0.478343 -0.442721 1.36447 0.0686235 -0.080712 /fh /lf 10` 拷贝到文件`launch/tf.launch`中的`args`中，我们可以通过ros tf中的`static_transform_publisher`将6颗激光雷达的数据融合在一个坐标系下。
+
+:artificial_satellite:修改`multi_lidar_calibrator.launch`中的`points_child_src`名称为其他data的topic，执行程序5次即可完成所有lidar的标定，得到5组外参（齐次矩阵、TF、平移量和四元数均能得到），将结果添加到tf.launch文件中后，我们就可以通过Rviz看到6颗激光雷达的标定结果了，执行tf.launch并运行bag：
+
+```bash
+roslaunch multi_lidar_calibrator tf.launch
+rosbag play multi_lidar.bag -l --clock
+```
+
+结果如下：
+
+![image-20200802104710136](picture/image-20200802104710136.png)
+
+
